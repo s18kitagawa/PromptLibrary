@@ -1,0 +1,2 @@
+# PromptLibrary
+ClaudeやChatGPTなどのAIに渡す作業指示書をまとめたリポジトリ
