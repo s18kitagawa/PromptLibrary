@@ -113,9 +113,8 @@ def analyze(relpath: str, path_str: str, kind: str) -> dict[str, Any]:
         return rec
 
     rec.update(width=width, height=height, megapixels=round(width * height / 1e6, 2))
-    small = img.copy()
-    small.thumbnail((ANALYSIS_SIDE, ANALYSIS_SIDE))
-    gray = np.asarray(small.convert("L"), dtype=np.uint8)
+    img.thumbnail((ANALYSIS_SIDE, ANALYSIS_SIDE))
+    gray = np.asarray(img.convert("L"), dtype=np.uint8)
 
     lap = cv2.Laplacian(gray, cv2.CV_64F)
     h, w = lap.shape
@@ -128,5 +127,5 @@ def analyze(relpath: str, path_str: str, kind: str) -> dict[str, Any]:
     rec["mean_luma"] = round(float(gray.mean()), 1)
     rec["clip_high"] = round(float((gray >= 250).mean()), 4)
     rec["clip_low"] = round(float((gray <= 5).mean()), 4)
-    rec["phash"] = str(imagehash.phash(small))
+    rec["phash"] = str(imagehash.phash(img))
     return rec

@@ -21,7 +21,7 @@ SCREEN_FIELDS = ["relpath", "status", "reasons", "kind", "megapixels", "captured
 
 
 def _hamming(a: str, b: str) -> int:
-    return bin(int(a, 16) ^ int(b, 16)).count("1")
+    return (int(a, 16) ^ int(b, 16)).bit_count()
 
 
 def _gap_seconds(a: dict[str, Any], b: dict[str, Any]) -> float:
@@ -63,7 +63,7 @@ def run(cfg: Config, year: str) -> int:
             r["_reasons"].append("read_error")
 
     # 2. Copies / derivatives of the same frame: keep one.
-    prefer_derivative = bool(inv.get("prefer_derivative", True))
+    prefer_derivative = inv["prefer_derivative"]
     groups: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         if not r["_reasons"]:
@@ -85,23 +85,23 @@ def run(cfg: Config, year: str) -> int:
         if r["_reasons"]:
             continue
         mp = r.get("megapixels") or 0
-        if mp < float(tech.get("min_megapixels", 4.0)):
+        if mp < tech["min_megapixels"]:
             r["_reasons"].append("low_resolution")
-        if mp > float(tech.get("max_megapixels", 100.0)):
+        if mp > tech["max_megapixels"]:
             r["_reasons"].append("too_high_resolution")
-        if (r.get("sharp_max") or 0) < float(qual.get("min_sharpness", 100.0)):
+        if (r.get("sharp_max") or 0) < qual["min_sharpness"]:
             r["_reasons"].append("soft_focus")
-        if r.get("clip_high", 0) > float(qual.get("max_clip_high", 0.25)) \
-                or r.get("mean_luma", 0) > float(qual.get("max_mean_luma", 235)):
+        if r.get("clip_high", 0) > qual["max_clip_high"] \
+                or r.get("mean_luma", 0) > qual["max_mean_luma"]:
             r["_reasons"].append("overexposed")
-        if r.get("clip_low", 0) > float(qual.get("max_clip_low", 0.98)) \
-                or r.get("mean_luma", 255) < float(qual.get("min_mean_luma", 12)):
+        if r.get("clip_low", 0) > qual["max_clip_low"] \
+                or r.get("mean_luma", 255) < qual["min_mean_luma"]:
             r["_reasons"].append("underexposed")
 
     # 4. Bursts: near-identical frames shot seconds apart -> keep the sharpest.
-    if bursts_cfg.get("enabled", True):
-        max_gap = float(bursts_cfg.get("max_gap_seconds", 30.0))
-        max_dist = int(bursts_cfg.get("max_hash_distance", 12))
+    if bursts_cfg["enabled"]:
+        max_gap = bursts_cfg["max_gap_seconds"]
+        max_dist = bursts_cfg["max_hash_distance"]
         cands = sorted((r for r in rows
                         if not r["_reasons"] and r.get("captured_at") and r.get("phash")),
                        key=lambda r: (r["captured_at"], r["relpath"]))

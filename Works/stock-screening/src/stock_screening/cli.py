@@ -15,6 +15,15 @@ def _year(value: str) -> str:
     return value
 
 
+def _flags(value: str) -> list[str]:
+    flags = [f.strip() for f in value.split(",") if f.strip()]
+    bad = [f for f in flags if f not in review.FLAGS]
+    if bad:
+        raise argparse.ArgumentTypeError(
+            f"unknown flag(s) {', '.join(bad)}; allowed: {', '.join(review.FLAGS)}")
+    return flags
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="stock-screening",
@@ -44,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = add("mark", "step 2b: record a decision for sheet IDs")
     sp.add_argument("--ids", required=True, help="e.g. '1-4,9,12'")
     sp.add_argument("--decision", required=True, choices=review.DECISIONS)
-    sp.add_argument("--flags", default="", help=f"comma list of: {', '.join(review.FLAGS)}")
+    sp.add_argument("--flags", type=_flags, default=[], help=f"comma list of: {', '.join(review.FLAGS)}")
     sp.add_argument("--note", default="")
 
     add("status", "show progress for a year")
@@ -71,8 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "sheets":
             return sheets.run(cfg, args.year, args.include_reviewed)
         if args.command == "mark":
-            flags = [f.strip() for f in args.flags.split(",") if f.strip()]
-            return review.mark(cfg, args.year, args.ids, args.decision, flags, args.note)
+            return review.mark(cfg, args.year, args.ids, args.decision, args.flags, args.note)
         if args.command == "status":
             return review.status(cfg, args.year)
         if args.command == "export":
@@ -81,7 +89,3 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

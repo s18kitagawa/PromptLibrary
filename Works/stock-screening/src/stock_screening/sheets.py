@@ -33,35 +33,25 @@ def read_index(cfg: Config, year: str) -> dict[str, dict[str, str]]:
         return {row["id"]: row for row in csv.DictReader(fh)}
 
 
-def _font(size: int) -> ImageFont.ImageFont:
-    try:
-        return ImageFont.load_default(size=size)
-    except TypeError:  # Pillow < 10.1
-        return ImageFont.load_default()
-
-
 def run(cfg: Config, year: str, include_reviewed: bool = False) -> int:
     opts = cfg.section("sheets")
-    cols, rows_n = int(opts.get("columns", 5)), int(opts.get("rows", 4))
-    tile = int(opts.get("tile_px", 440))
-    quality = int(opts.get("jpeg_quality", 82))
+    cols, rows_n, tile = opts["columns"], opts["rows"], opts["tile_px"]
 
     reviewed = set() if include_reviewed else set(review.load(cfg, year))
     passed = [r for r in selection.read_screen(cfg, year)
               if r["status"] == "pass" and r["relpath"] not in reviewed]
     passed.sort(key=lambda r: (r.get("captured_at") or "", r["relpath"]))
     out = sheets_dir(cfg, year)
-    if not passed:
-        print(f"[sheets {year}] nothing to review"
-              + ("" if include_reviewed else " (already-reviewed files are skipped)"))
-        return 0
+    # No early return when nothing passes: index.csv must still be rewritten (empty)
+    # so `mark` cannot hit IDs from an earlier run.
 
     label_h = max(28, tile // 16)
     box_h = int(tile * 0.8)
     cell_w, cell_h, pad = tile, box_h + label_h, 8
     per_sheet = cols * rows_n
     n_sheets = math.ceil(len(passed) / per_sheet)
-    font_id, font_small = _font(label_h - 6), _font(max(12, label_h // 2))
+    font_id = ImageFont.load_default(size=label_h - 6)
+    font_small = ImageFont.load_default(size=max(12, label_h // 2))
     index_rows: list[dict[str, str]] = []
 
     for s in range(n_sheets):
@@ -87,7 +77,7 @@ def run(cfg: Config, year: str, include_reviewed: bool = False) -> int:
                       font=font_small, anchor="rm")
             index_rows.append({"id": tile_id, "sheet": name, "relpath": row["relpath"],
                                "captured_at": row.get("captured_at", "")})
-        sheet.save(out / name, quality=quality, optimize=True)
+        sheet.save(out / name, quality=opts["jpeg_quality"], optimize=True)
 
     with open(out / INDEX_NAME, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=INDEX_FIELDS)
@@ -106,8 +96,12 @@ def run(cfg: Config, year: str, include_reviewed: bool = False) -> int:
         except OSError:
             stale.append(old.name)
 
-    print(f"[sheets {year}] {len(passed)} images on {n_sheets} sheets "
-          f"(sheet_001.jpg - sheet_{n_sheets:03d}.jpg) in {out}")
+    if passed:
+        print(f"[sheets {year}] {len(passed)} images on {n_sheets} sheets "
+              f"(sheet_001.jpg - sheet_{n_sheets:03d}.jpg) in {out}")
+    else:
+        print(f"[sheets {year}] nothing to review"
+              + ("" if include_reviewed else " (already-reviewed files are skipped)"))
     if stale:
         print(f"note: could not delete {len(stale)} stale sheets from an earlier run "
               f"({stale[0]} ...); ignore them - index.csv lists the current set")

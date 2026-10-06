@@ -52,14 +52,17 @@ def run(cfg: Config, year: str, time_budget: float = 0, workers: int = 0) -> int
     start = time.monotonic()
     items = inventory.list_year(cfg, year)
     cache = load_cache(cfg, year)
-    todo = [it for it in items if not is_fresh(cache.get(it.relpath), it)]
+    # Error records are retried on every scan: the failure may have been transient
+    # (e.g. a dropped mount). `select` still accepts them as scanned.
+    todo = [it for it in items if not is_fresh(rec := cache.get(it.relpath), it)
+            or rec.get("error")]
     print(f"[scan {year}] {len(items)} files: {len(items) - len(todo)} cached, "
           f"{len(todo)} to analyze", flush=True)
     if not todo:
         print("SCAN COMPLETE")
         return 0
 
-    workers = workers or max(1, os.cpu_count() or 1)
+    workers = workers or os.cpu_count() or 1
     done = 0
     stopped = False
     queue = iter(todo)

@@ -11,6 +11,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+from . import inventory, scan, selection
 from .config import Config
 
 REVIEW_NAME = "review.csv"
@@ -41,16 +42,19 @@ def _save(cfg: Config, year: str, rows: dict[str, dict[str, str]]) -> None:
 
 
 def parse_ids(spec: str) -> list[int]:
-    """'1-4, 9,12' -> [1, 2, 3, 4, 9, 12]"""
+    """'1-4, 9,12' -> [1, 2, 3, 4, 9, 12]. Raises ValueError on malformed input."""
     out: list[int] = []
     for part in spec.replace(" ", "").split(","):
         if not part:
             continue
-        if "-" in part:
-            lo, hi = (int(x) for x in part.split("-", 1))
-            out.extend(range(lo, hi + 1))
-        else:
-            out.append(int(part))
+        try:
+            lo, _, hi = part.partition("-")
+            lo_n, hi_n = int(lo), int(hi or lo)
+        except ValueError:
+            raise ValueError(f"invalid ID '{part}' in --ids (e.g. '1-4,9,12')") from None
+        if lo_n > hi_n:
+            raise ValueError(f"invalid range '{part}' in --ids (start > end)")
+        out.extend(range(lo_n, hi_n + 1))
     return out
 
 
@@ -67,17 +71,15 @@ def compress_ids(ids: list[int]) -> str:
 
 
 def mark(cfg: Config, year: str, ids: str, decision: str, flags: list[str], note: str) -> int:
-    from .sheets import read_index
+    """`decision` and `flags` are validated by the CLI parser."""
+    from .sheets import read_index  # circular: sheets imports review
 
-    if decision not in DECISIONS:
-        print(f"error: decision must be one of {', '.join(DECISIONS)}")
-        return 2
-    bad_flags = [f for f in flags if f not in FLAGS]
-    if bad_flags:
-        print(f"error: unknown flag(s) {bad_flags}; allowed: {', '.join(FLAGS)}")
+    try:
+        numbers = parse_ids(ids)
+    except ValueError as exc:
+        print(f"error: {exc}")
         return 2
     index = read_index(cfg, year)
-    numbers = parse_ids(ids)
     unknown = [n for n in numbers if f"{n:04d}" not in index]
     if unknown:
         print(f"error: IDs not in the current sheets: {compress_ids(unknown)}")
@@ -95,7 +97,7 @@ def mark(cfg: Config, year: str, ids: str, decision: str, flags: list[str], note
 
 
 def status(cfg: Config, year: str) -> int:
-    from . import inventory, scan, selection, sheets
+    from . import sheets  # circular: sheets imports review
 
     items = inventory.list_year(cfg, year)
     cache = scan.load_cache(cfg, year)
@@ -117,6 +119,9 @@ def status(cfg: Config, year: str) -> int:
         index = sheets.read_index(cfg, year)
     except FileNotFoundError:
         print("  sheets           not rendered (run sheets)")
+        return 0
+    if not index:
+        print("  sheets           none (nothing left to review)")
         return 0
     pending = [int(i) for i, row in index.items() if row["relpath"] not in rows]
     n_sheets = len({row["sheet"] for row in index.values()})

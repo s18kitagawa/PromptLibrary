@@ -39,14 +39,6 @@ def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _is_within(child: Path, parent: Path) -> bool:
-    try:
-        child.relative_to(parent)
-        return True
-    except ValueError:
-        return False
-
-
 @dataclass
 class Config:
     photos_root: Path
@@ -89,11 +81,11 @@ def load(photos_root: Path | None = None, out_dir: Path | None = None,
     if not photos_path.is_dir():
         raise ConfigError(f"photo archive not found: {photos_path}")
     # Privacy guard: results (paths, thumbnails, review notes) must never land in the repo.
-    if _is_within(out_path, REPO_ROOT):
+    if out_path.is_relative_to(REPO_ROOT):
         raise ConfigError("output folder must be outside the code repository "
                           f"({REPO_ROOT}) so results can never be committed")
     # Keep contact sheets out of the archive so Lightroom never imports them.
-    if _is_within(out_path, photos_path):
+    if out_path.is_relative_to(photos_path):
         raise ConfigError("output folder must be outside the photo archive")
     out_path.mkdir(parents=True, exist_ok=True)
     return Config(photos_path, out_path, data)

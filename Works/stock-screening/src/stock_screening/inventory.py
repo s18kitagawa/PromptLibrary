@@ -19,7 +19,7 @@ class Item:
 
 
 def _exts(cfg: Config, key: str) -> set[str]:
-    return {e.lower().lstrip(".") for e in cfg.section("inventory").get(key, [])}
+    return {e.lower().lstrip(".") for e in cfg.section("inventory")[key]}
 
 
 def list_year(cfg: Config, year: str) -> list[Item]:
@@ -31,7 +31,9 @@ def list_year(cfg: Config, year: str) -> list[Item]:
                          ("raw_extensions", "image_extensions", "video_extensions"))
     items: list[Item] = []
     for path in sorted(root.rglob("*")):
-        if path.name.startswith(".") or not path.is_file():
+        # Skip hidden files and anything inside hidden folders (.Trash, NAS thumbnail caches).
+        if any(part.startswith(".") for part in path.relative_to(root).parts) \
+                or not path.is_file():
             continue
         ext = path.suffix.lower().lstrip(".")
         kind = "raw" if ext in raw else "image" if ext in image else "video" if ext in video else None
@@ -48,8 +50,8 @@ class StemNormalizer:
 
     def __init__(self, cfg: Config):
         inv = cfg.section("inventory")
-        self.prefixes: list[str] = list(inv.get("copy_prefixes", []))
-        self.suffixes = [re.compile(rx) for rx in inv.get("derivative_suffixes", [])]
+        self.prefixes: list[str] = list(inv["copy_prefixes"])
+        self.suffixes = [re.compile(rx) for rx in inv["derivative_suffixes"]]
 
     def split(self, relpath: str) -> tuple[str, bool, bool]:
         p = PurePosixPath(relpath)
