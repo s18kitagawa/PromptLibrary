@@ -38,6 +38,9 @@ eq("csv no trailing newline", rows[2][2], "v2")
 
 rows = ReviewCsv.parseCsv("a,\n")
 eq("csv trailing empty field", #rows[1], 2)
+rows = ReviewCsv.parseCsv("h\na,")
+eq("csv trailing comma at EOF keeps row", #rows, 2)
+eq("csv trailing comma at EOF fields", #rows[2], 2)
 
 check("csv unterminated quote errors", not pcall(ReviewCsv.parseCsv, 'a\n"oops\n'))
 
@@ -50,19 +53,17 @@ local text = table.concat({
 	"a/b.dng,0003,reject,,,2026-10-06T10:02:00",
 	"a/c.dng,0004,maybe,,,",
 	",0005,candidate,,,",
-	"a/b.dng,0003,candidate,,,2026-10-06T11:00:00",
 	"",
 }, "\r\n")
 local recs, warns = ReviewCsv.parseReview(text)
 eq("review count", #recs, 3)
-eq("review warnings", #warns, 3)
+eq("review warnings", #warns, 2)
 eq("review utf8 relpath", recs[1].relpath, "2019/京都/DSC0001.ARW")
 eq("review decision", recs[2].decision, "review")
-eq("review flags list", #recs[2].flags, 2)
 eq("review flags text", recs[2].flagsText, "people, logo")
 eq("review note", recs[2].note, 'faces, logo "ABC"')
-eq("review duplicate later wins", recs[3].decision, "candidate")
-eq("review reviewed_at", recs[3].reviewedAt, "2026-10-06T11:00:00")
+eq("review reject", recs[3].decision, "reject")
+eq("review reviewed_at", recs[3].reviewedAt, "2026-10-06T10:02:00")
 
 check("review missing column errors", not pcall(ReviewCsv.parseReview, "id,decision\r\n1,candidate\r\n"))
 check("review empty errors", not pcall(ReviewCsv.parseReview, ""))

@@ -65,6 +65,7 @@ function ReviewCsv.parseCsv(text)
 			row = {}
 		end
 	end
+	if #row > 0 then rows[#rows + 1] = row end -- last record ended with a comma at EOF
 	return rows
 end
 
@@ -72,18 +73,20 @@ local function trim(s)
 	return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function splitFlags(s)
+-- "people;logo" -> "people, logo"
+local function flagsText(s)
 	local out = {}
-	for flag in (s or ""):gmatch("[^;]+") do
+	for flag in s:gmatch("[^;]+") do
 		flag = trim(flag)
 		if flag ~= "" then out[#out + 1] = flag end
 	end
-	return out
+	return table.concat(out, ", ")
 end
 
 --[[
 Parse review.csv text into records:
-  { relpath=, id=, decision=, flags={...}, flagsText=, note=, reviewedAt= }
+  { relpath=, decision=, flagsText=, note=, reviewedAt= }
+relpath is unique: review.py writes the file from a dict keyed by relpath.
 Returns records, warnings (list of strings). Raises an error if required columns are missing.
 ]]
 function ReviewCsv.parseReview(text)
@@ -105,7 +108,7 @@ function ReviewCsv.parseReview(text)
 		return i and row[i] or ""
 	end
 
-	local records, warnings, seen = {}, {}, {}
+	local records, warnings = {}, {}
 	for r = 2, #rows do
 		local row = rows[r]
 		if not (#row == 1 and row[1] == "") then -- skip blank lines
@@ -116,30 +119,17 @@ function ReviewCsv.parseReview(text)
 			elseif not VALID_DECISION[decision] then
 				warnings[#warnings + 1] = "row " .. r .. ": unknown decision '" .. decision .. "', skipped"
 			else
-				if seen[relpath] then
-					warnings[#warnings + 1] = "row " .. r .. ": duplicate relpath, later row wins"
-					records[seen[relpath]] = false
-				end
-				local flagsText = get(row, "flags")
 				records[#records + 1] = {
 					relpath = relpath,
-					id = get(row, "id"),
 					decision = decision,
-					flags = splitFlags(flagsText),
-					flagsText = table.concat(splitFlags(flagsText), ", "),
+					flagsText = flagsText(get(row, "flags")),
 					note = get(row, "note"),
 					reviewedAt = get(row, "reviewed_at"),
 				}
-				seen[relpath] = #records
 			end
 		end
 	end
-	-- Drop records superseded by duplicates.
-	local out = {}
-	for _, rec in ipairs(records) do
-		if rec then out[#out + 1] = rec end
-	end
-	return out, warnings
+	return records, warnings
 end
 
 return ReviewCsv

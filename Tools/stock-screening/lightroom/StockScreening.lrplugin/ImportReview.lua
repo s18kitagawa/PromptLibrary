@@ -251,6 +251,16 @@ local function run(context)
 		return
 	end
 
+	-- The year is not re-read when the path is typed by hand; a stale year would replace another year's collections.
+	local csvYear = PathMatch.yearFromReviewPath(opts.reviewCsv)
+	if csvYear and csvYear ~= opts.year then
+		local answer = LrDialogs.confirm(
+			LOC("$$$/StockScreening/YearMismatch=Year ^1 does not match the review.csv folder (^2).", opts.year, csvYear),
+			LOC("$$$/StockScreening/YearMismatchInfo=Results will go into ^1 / ^2.", opts.setName, opts.year),
+			LOC "$$$/StockScreening/ImportAnyway=Import Anyway")
+		if answer ~= "ok" then return end
+	end
+
 	local text = LrFileUtils.readFile(opts.reviewCsv)
 	local ok, records, warnings = pcall(ReviewCsv.parseReview, text or "")
 	if not ok then
@@ -289,7 +299,7 @@ local function run(context)
 	end
 
 	local collections = {}
-	catalog:withWriteAccessDo(LOC "$$$/StockScreening/Undo=Import Screening Results", function()
+	local status = catalog:withWriteAccessDo(LOC "$$$/StockScreening/Undo=Import Screening Results", function()
 		local topSet = catalog:createCollectionSet(opts.setName, nil, true)
 		local yearSet = catalog:createCollectionSet(opts.year, topSet, true)
 		for _, decision in ipairs(ReviewCsv.DECISIONS) do
@@ -316,6 +326,13 @@ local function run(context)
 
 	progress:done()
 
+	if status == "aborted" then
+		LrDialogs.message(LOC "$$$/StockScreening/ErrTitle=Stock Screening",
+			LOC "$$$/StockScreening/ErrAborted=The catalog is busy (another task is writing to it). Nothing was imported; try again later.",
+			"critical")
+		return
+	end
+
 	if collections[1] then
 		catalog:setActiveSources { collections[1].collection }
 	end
@@ -330,9 +347,16 @@ local function run(context)
 	end
 	lines[#lines + 1] = LOC("$$$/StockScreening/SumMatched=Matched: ^1 (by path ^2, same name other extension ^3)",
 		tostring(#matched), tostring(counts.exact), tostring(counts.sibling))
-	if #unmatched > 0 then
+	if unmatchedPath then
 		lines[#lines + 1] = LOC("$$$/StockScreening/SumUnmatched=Not found in catalog: ^1 - see ^2",
-			tostring(#unmatched), unmatchedPath or UNMATCHED_NAME)
+			tostring(#unmatched), unmatchedPath)
+	elseif #unmatched > 0 then
+		-- The list file could not be written (e.g. read-only folder): show the first entries here.
+		lines[#lines + 1] = LOC("$$$/StockScreening/SumUnmatchedNoFile=Not found in catalog: ^1 (could not write ^2)",
+			tostring(#unmatched), UNMATCHED_NAME)
+		for i = 1, math.min(#unmatched, 10) do
+			lines[#lines + 1] = "  " .. unmatched[i].relpath .. " - " .. unmatched[i].reason
+		end
 	end
 	if #warnings > 0 then
 		lines[#lines + 1] = LOC("$$$/StockScreening/SumWarnings=Skipped rows: ^1 (first: ^2)", tostring(#warnings), warnings[1])
