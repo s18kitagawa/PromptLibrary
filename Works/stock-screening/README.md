@@ -135,10 +135,6 @@ Setup is complete. Start a Cowork session in the project and ask, for example,
   responsibility. Passing this screening does not mean Adobe will accept an image.
 - Not affiliated with or endorsed by Adobe.
 
-## License
-
-No license has been chosen yet; all rights reserved by the author until one is added.
-
 ---
 
 ## 日本語
