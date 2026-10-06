@@ -85,10 +85,12 @@ candidate and reject, use `review` with a flag rather than guessing.
 ## 3. Wrap up
 
 1. `ss status` - confirm `not yet reviewed 0`.
-2. `ss export --decision candidate --path-prefix "<device path of the photo archive>"`
-   writes `export_candidate.txt` with macOS paths (input for the Lightroom step).
-3. Report to the user: counts per decision, notable themes among the candidates, the
+2. Report to the user: counts per decision, notable themes among the candidates, the
    `review` items grouped by flag, and the output file locations.
+3. Tell the user the next step: in Lightroom Classic, *Library → Plug-in Extras →
+   Import Screening Results (review.csv)...* with `<output>/<YYYY>/review.csv` and the
+   photo archive's device path (the plug-in is `lightroom/StockScreening.lrplugin` in the
+   code folder; see README). `ss export` is only needed if they want a plain path list.
 
 ## Privacy rules
 

@@ -10,8 +10,9 @@ files are selected by the year they were taken, not by where they are stored.
 2. **Visual review** - renders numbered contact sheets that a person (or Claude, via
    [`SKILL.md`](SKILL.md)) reviews; decisions are recorded per file as
    `candidate` / `review` / `reject`.
-3. *(planned)* A Lightroom Classic plug-in that turns the candidate list into a collection,
-   from which you publish via Lightroom's built-in Adobe Stock publish service.
+3. **Lightroom Classic** - a plug-in ([`lightroom/`](#lightroom-classic-plug-in)) imports
+   `review.csv` into collections, from which you publish via Lightroom's built-in Adobe Stock
+   publish service.
 
 日本語の説明は [下部](#日本語) にあります。
 
@@ -82,8 +83,46 @@ uv run stock-screening export --year 2019 --decision candidate --path-prefix /Us
 ├─ sheets/sheet_NNN.jpg   numbered contact sheets
 ├─ sheets/index.csv       tile ID -> file
 ├─ review.csv             decisions (candidate / review / reject), flags, notes
-└─ export_<decision>.txt  file list for Lightroom
+├─ export_<decision>.txt  plain file list (alternative to the plug-in)
+└─ lightroom_unmatched.txt  written by the Lightroom plug-in: files not found in the catalog
 ```
+
+## Lightroom Classic plug-in
+
+`lightroom/StockScreening.lrplugin` reads `review.csv` directly.
+
+**Install:** Lightroom Classic → *File → Plug-in Manager → Add* → select
+`lightroom/StockScreening.lrplugin`.
+
+**Use:** *Library → Plug-in Extras → Import Screening Results (review.csv)...*
+
+| Field | Value |
+|---|---|
+| review.csv | `<out_dir>/<YYYY>/review.csv` (the year is taken from its folder name) |
+| Photo archive | the same folder as `photos_root`, as this Mac sees it (e.g. `/Users/you/Pictures/RAW_Photos`) |
+| Collection set | default `Stock Screening` |
+
+Result:
+
+```
+Stock Screening/
+└─ 2019/
+   ├─ candidate   -> publish from here with the Adobe Stock publish service
+   ├─ review      -> check flags/notes (model or property release, logos ...)
+   └─ reject      (off by default)
+```
+
+- Matching: the exact path first (case-insensitive); otherwise a photo with the same file name
+  and another extension in the same folder (e.g. the RAW of a RAW+JPEG pair).
+  Files that are not in the catalog are listed in `lightroom_unmatched.txt` - import them
+  into Lightroom first and run the plug-in again.
+- *Replace collection contents* (default on) empties the collections before adding, so a
+  re-import reflects changed decisions. Run it as often as you like.
+- Decision, flags, note, year and review time are stored as **plug-in metadata**
+  (Metadata panel → *Stock Screening*). They are searchable and usable in smart collections
+  (*Other Metadata*), and unlike keywords or captions they are **never sent to Adobe Stock**.
+- Everything is one undo step (*Edit → Undo*).
+- Tests for the Lightroom-independent parts: `lua lightroom/tests/test_pure.lua`.
 
 ## How screening works / tuning (`config.toml`)
 
@@ -105,6 +144,7 @@ bump `METRICS_VERSION` in `metrics.py` to invalidate caches.
 
 ```bash
 uv run python tests/test_logic.py
+lua lightroom/tests/test_pure.lua    # Lightroom plug-in, Lightroom-independent parts
 ```
 
 ## Using with Claude Cowork
@@ -143,7 +183,7 @@ Setup is complete. Start a Cowork session in the project and ask, for example,
 
 1. **自動スクリーニング**：RAW+JPEG や編集後の派生ファイルを 1 枚にまとめ、Adobe Stock の解像度要件（4〜100MP）を確認し、ピンボケ・露出不良・連写の重複を除外します。
 2. **目視選別**：番号付きのコンタクトシートを作成し、人（または [`SKILL.md`](SKILL.md) に従う Claude）が `candidate` / `review` / `reject` を記録します。
-3. *（予定）* 候補リストを Lightroom Classic のコレクションにするプラグイン。そこから Lightroom 標準の Adobe Stock 公開サービスで送信します。
+3. **Lightroom Classic**：プラグイン（`lightroom/StockScreening.lrplugin`）で `review.csv` をコレクションに取り込み、Lightroom 標準の Adobe Stock 公開サービスで送信します。
 
 ### プライバシー設計
 
@@ -171,10 +211,25 @@ uv run stock-screening export --year 2019 --path-prefix /Users/you/Pictures/RAW_
 - 同じフォルダ内で基本ファイル名が同じもの（RAW+JPEG、`LRG_` コピー、`-Enhanced-NR` などの派生）は 1 枚にまとめます。
 - しきい値は `config.local.toml` で上書きし、`select` だけ再実行すれば反映されます。
 
+### Lightroom Classic プラグイン
+
+**インストール**：Lightroom Classic の「ファイル」→「プラグインマネージャー」→「追加」で `lightroom/StockScreening.lrplugin` を選択します。
+
+**使い方**：「ライブラリ」→「プラグインエクストラ」→「Import Screening Results (review.csv)...」
+
+- **review.csv**：`<出力フォルダ>/<YYYY>/review.csv` を選択（年はフォルダ名から自動入力）
+- **Photo archive**：スクリーニング時の `photos_root` と同じフォルダ（Mac 上のパス。例：`/Users/you/Pictures/RAW_Photos`）
+- `Stock Screening / <YYYY> / candidate・review・reject` のコレクションが作成されます（reject は初期設定でオフ）。`candidate` から Adobe Stock 公開サービスで送信してください。
+- パスが一致しない場合は、同じフォルダ内の同じファイル名・別拡張子の写真（RAW+JPEG の RAW など）を探します。カタログに見つからなかったファイルは `review.csv` と同じフォルダの `lightroom_unmatched.txt` に記録されます。
+- 「Replace collection contents」（初期設定オン）では取り込み前にコレクションを空にするので、判定を変えたあとに再実行すれば反映されます。
+- 判定・フラグ・メモはキーワードやキャプションではなく**プラグインのメタデータ**として保存されます（メタデータパネルの「Stock Screening」）。検索やスマートコレクションに使えますが、**Adobe Stock には送信されません**。
+- 取り込みは 1 回の「取り消し」で元に戻せます。
+
 ### テスト
 
 ```bash
 uv run python tests/test_logic.py
+lua lightroom/tests/test_pure.lua    # プラグインの Lightroom 非依存部分
 ```
 
 ### Claude Cowork での実行手順
