@@ -113,7 +113,7 @@ After this one-time setup, you only need to ask Claude to screen a given year.
 
 1. In the Claude app, open **Customize → Skills → Add → Upload skill** and register `SKILL.md` as a skill.
 2. Create a new project (any name).
-3. Connect these three local folders to the project as context:
+3. Connect these three local folders under the project's "Folders":
    1. this repository (`stock-screening`)
    2. the folder containing the photos to screen (e.g. `RAW_Photos`)
    3. the output folder for screening results (e.g. `stock_screening_out`; it must be outside the other two)
@@ -183,7 +183,7 @@ uv run python tests/test_logic.py
 
 1. Claude アプリで「カスタマイズ」→「スキル」→「追加」→「スキルをアップロード」を開き、`SKILL.md` をスキルとして登録します。
 2. プロジェクトを新規作成します（プロジェクト名は任意）。
-3. プロジェクトのコンテキストとして、次の 3 つのローカルフォルダを接続します。
+3. プロジェクトの「フォルダ」に、次の 3 つのローカルフォルダを接続します。
    1. このリポジトリのフォルダ（`stock-screening`）
    2. スクリーニングしたい写真が入っているフォルダ（例：`RAW_Photos`）
    3. スクリーニング結果の出力フォルダ（例：`stock_screening_out`。上の 2 つのフォルダの外に作成してください）
