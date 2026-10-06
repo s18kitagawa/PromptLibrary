@@ -1,7 +1,7 @@
 [project]
 name = "stock-screening"
 version = "0.1.0"
-description = "Pre-screen a dated RAW photo archive (YYYY/YYYY-MM-DD) for Adobe Stock submission candidates."
+description = "Pre-screen a photo archive (any folder layout) for Adobe Stock submission candidates, one capture year at a time."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

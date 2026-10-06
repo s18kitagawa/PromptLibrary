@@ -1,4 +1,4 @@
-"""Per-file analysis: EXIF, resolution, sharpness, exposure and perceptual hash.
+"""Per-file analysis: capture date (EXIF or mtime), resolution, sharpness, exposure, pHash.
 
 Metrics are computed on the JPEG preview embedded in RAW files (fast, no demosaicing).
 When a RAW has no usable preview, a half-size LibRaw render is used instead.
@@ -20,7 +20,7 @@ import rawpy
 from PIL import Image, ImageOps
 
 # Bump when the metric definitions change so cached results are recomputed.
-METRICS_VERSION = 1
+METRICS_VERSION = 2  # 2: archive-wide cache, date_source, two-step scan
 
 PREVIEW_MIN_SIDE = 800   # embedded previews smaller than this trigger a LibRaw render
 ANALYSIS_SIDE = 1024     # metrics are computed at this long-side size for comparability
@@ -53,15 +53,31 @@ def read_exif(path: Path) -> dict[str, Any]:
         return None
 
     captured = None
-    raw_dt = get("EXIF DateTimeOriginal", "EXIF DateTimeDigitized", "Image DateTime")
-    if raw_dt:
-        try:
-            captured = datetime.strptime(raw_dt[:19], "%Y:%m:%d %H:%M:%S").isoformat()
-        except ValueError:
-            pass
+    for key in ("EXIF DateTimeOriginal", "EXIF DateTimeDigitized", "Image DateTime"):
+        raw_dt = get(key)
+        if raw_dt:
+            try:  # placeholders like "0000:00:00 00:00:00" fall through to the next tag
+                captured = datetime.strptime(raw_dt[:19], "%Y:%m:%d %H:%M:%S").isoformat()
+                break
+            except ValueError:
+                pass
     make, model = get("Image Make"), get("Image Model")
     camera = " ".join(x for x in (make, model) if x) or None
     return {"captured_at": captured, "camera": camera}
+
+
+def capture_date(path_str: str, mtime: float) -> dict[str, Any]:
+    """EXIF capture time, or the file mtime when there is none. Runs in a worker process.
+
+    Returns {"captured_at", "date_source" ("exif" | "mtime"), "camera"}.
+    """
+    rec = read_exif(Path(path_str))
+    if rec["captured_at"]:
+        rec["date_source"] = "exif"
+    else:
+        rec["captured_at"] = datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
+        rec["date_source"] = "mtime"
+    return rec
 
 
 def load_preview(path: Path, kind: str) -> tuple[Image.Image, int, int]:
@@ -99,15 +115,13 @@ def load_preview(path: Path, kind: str) -> tuple[Image.Image, int, int]:
     return img.convert("RGB"), width, height
 
 
-def analyze(relpath: str, path_str: str, kind: str) -> dict[str, Any]:
-    """Compute all metrics for one file. Runs in a worker process."""
-    path = Path(path_str)
-    rec: dict[str, Any] = {"relpath": relpath, "kind": kind}
-    rec.update(read_exif(path))
+def analyze(path_str: str, kind: str) -> dict[str, Any]:
+    """Compute the preview metrics for one file. Runs in a worker process."""
+    rec: dict[str, Any] = {}
     if kind == "video":
         return rec
     try:
-        img, width, height = load_preview(path, kind)
+        img, width, height = load_preview(Path(path_str), kind)
     except Exception as exc:  # unreadable / unsupported file
         rec["error"] = f"{type(exc).__name__}: {exc}"[:200]
         return rec

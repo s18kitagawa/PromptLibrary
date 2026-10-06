@@ -27,19 +27,21 @@ def _flags(value: str) -> list[str]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="stock-screening",
-        description="Pre-screen a YYYY/YYYY-MM-DD photo archive for Adobe Stock candidates.")
+        description="Pre-screen a photo archive for Adobe Stock candidates, one capture year "
+                    "at a time (any folder layout).")
     p.add_argument("--version", action="version", version=__version__)
-    p.add_argument("--photos-root", type=Path, help="photo archive root (contains YYYY folders)")
+    p.add_argument("--photos-root", type=Path, help="photo archive root (any folder layout)")
     p.add_argument("--out-dir", type=Path, help="where results go (outside repo and archive)")
     p.add_argument("--config", type=Path, help="extra TOML file overriding config.toml")
     sub = p.add_subparsers(dest="command", required=True)
 
     def add(name: str, help_: str) -> argparse.ArgumentParser:
         sp = sub.add_parser(name, help=help_)
-        sp.add_argument("--year", type=_year, required=True)
+        sp.add_argument("--year", type=_year, required=True,
+                        help="capture year (EXIF date, or file mtime when missing)")
         return sp
 
-    sp = add("scan", "step 1a: analyze files of a year (cached, resumable)")
+    sp = add("scan", "step 1a: date all files, then analyze those of the year (cached, resumable)")
     sp.add_argument("--time-budget", type=float, default=0,
                     help="stop after N seconds with exit code 3; re-run to continue")
     sp.add_argument("--workers", type=int, default=0, help="worker processes (default: CPUs)")

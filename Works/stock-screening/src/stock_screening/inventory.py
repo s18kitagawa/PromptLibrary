@@ -1,9 +1,14 @@
-"""List the files of one year and group copies/derivatives of the same frame."""
+"""List the files of the archive and group copies/derivatives of the same frame.
+
+The folder layout is free-form: years are taken from capture dates (see scan.py), not paths.
+"""
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 
 from .config import Config
@@ -22,26 +27,38 @@ def _exts(cfg: Config, key: str) -> set[str]:
     return {e.lower().lstrip(".") for e in cfg.section("inventory")[key]}
 
 
-def list_year(cfg: Config, year: str) -> list[Item]:
-    """Return every supported file under <photos_root>/<year>, sorted by path."""
-    root = cfg.photos_root / year
-    if not root.is_dir():
-        raise FileNotFoundError(f"year folder not found: {root}")
+def is_excluded(relpath: str, globs: list[str]) -> bool:
+    """True if `relpath` or any folder above it is hidden or matches an exclude glob.
+
+    Globs are fnmatch patterns (case-sensitive) on the POSIX path relative to photos_root;
+    "*" also matches "/", so "Exports" or "*.lrdata" exclude a whole folder at any depth.
+    """
+    p = PurePosixPath(relpath)
+    return any(q.name.startswith(".") or any(fnmatchcase(str(q), g) for g in globs)
+               for q in (p, *p.parents[:-1]))
+
+
+def list_all(cfg: Config) -> list[Item]:
+    """Return every supported file under photos_root (any folder layout), sorted by path."""
+    root = cfg.photos_root
+    globs = list(cfg.section("inventory")["exclude_globs"])
     raw, image, video = (_exts(cfg, k) for k in
                          ("raw_extensions", "image_extensions", "video_extensions"))
     items: list[Item] = []
-    for path in sorted(root.rglob("*")):
-        # Skip hidden files and anything inside hidden folders (.Trash, NAS thumbnail caches).
-        if any(part.startswith(".") for part in path.relative_to(root).parts) \
-                or not path.is_file():
-            continue
-        ext = path.suffix.lower().lstrip(".")
-        kind = "raw" if ext in raw else "image" if ext in image else "video" if ext in video else None
-        if kind is None:
-            continue  # sidecars (.xmp), info.lua, etc.
-        st = path.stat()
-        items.append(Item(path.relative_to(cfg.photos_root).as_posix(), path, kind,
-                          st.st_size, st.st_mtime))
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
+        prefix = "" if rel_dir == "." else rel_dir + "/"
+        # Prune hidden/excluded folders so we never walk e.g. Lightroom preview caches.
+        dirnames[:] = [d for d in dirnames if not is_excluded(prefix + d, globs)]
+        for name in filenames:
+            ext = os.path.splitext(name)[1].lower().lstrip(".")
+            kind = "raw" if ext in raw else "image" if ext in image else "video" if ext in video else None
+            if kind is None or is_excluded(prefix + name, globs):
+                continue  # sidecars (.xmp), info.lua, hidden or excluded files
+            path = Path(dirpath, name)
+            st = path.stat()
+            items.append(Item(prefix + name, path, kind, st.st_size, st.st_mtime))
+    items.sort(key=lambda it: it.relpath)
     return items
 
 

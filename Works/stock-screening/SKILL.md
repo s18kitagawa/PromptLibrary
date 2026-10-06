@@ -1,6 +1,6 @@
 ---
 name: stock-screening
-description: Screen one year of a dated photo archive (YYYY/YYYY-MM-DD) for Adobe Stock candidates - automatic technical filter, numbered contact sheets, visual review, recorded decisions. Use when asked to screen or pick stock photos for a year, e.g. "screen 2020 for Adobe Stock" or "2020をやって".
+description: Screen one capture year of a photo archive (any folder layout) for Adobe Stock candidates - automatic technical filter, numbered contact sheets, visual review, recorded decisions. Use when asked to screen or pick stock photos for a year, e.g. "screen 2020 for Adobe Stock" or "2020をやって".
 ---
 
 # Stock screening (Claude Cowork)
@@ -9,7 +9,8 @@ Run steps 1-2 of the stock-screening pipeline for **one year** and leave a revie
 `review.csv` in the output folder. Photos are read-only: never move, rename, edit or
 delete anything in the photo archive.
 
-The user names a year (`YYYY`). If they did not, ask which year.
+The user names a year (`YYYY`). If they did not, ask which year. The year is the **capture
+year** (EXIF date, or file mtime when there is none), not a folder name.
 
 ## 0. Locate folders and prepare the environment
 
@@ -18,7 +19,7 @@ Three folders must be connected to the session (ask the user to connect any that
 | Role | How to recognise it |
 |---|---|
 | Code (this repo) | contains `pyproject.toml` with `name = "stock-screening"` |
-| Photo archive | contains `YYYY/` folders with `YYYY-MM-DD/` subfolders |
+| Photo archive | contains the photos (RAW / JPEG ...) in any folder layout |
 | Output folder | anything else the user designated for results; must be outside the other two |
 
 In `device_bash`, connected folders are mounted under `$HOME/mnt/<folder-name>`.
@@ -41,7 +42,11 @@ Every later call: same `export` and `cd`, then
 1. `ss status` - see where this year stands; resume from the first unfinished step.
 2. `ss scan --time-budget 150` - repeat until it prints `SCAN COMPLETE`
    (exit code 3 = time budget hit, just run it again; results are cached).
+   Step 1/2 reads the capture date of every file in the archive; on the very first run this
+   alone can take several runs. Later years reuse those dates and go straight to step 2/2.
 3. `ss select` - prints pass/reject counts by reason. Report them to the user.
+   If `ss status` shows files `dated by file mtime`, mention it: those files have no EXIF
+   date, so their year may be wrong (e.g. the date they were copied or exported).
    If the pass rate looks wrong (e.g. almost everything rejected as `soft_focus`),
    suggest a threshold change in `config.local.toml` and re-run `select` (no rescan needed).
 4. `ss sheets` - renders `sheets/sheet_NNN.jpg` (20 numbered tiles each) and `sheets/index.csv`.

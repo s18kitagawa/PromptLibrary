@@ -15,7 +15,8 @@ from . import inventory, scan
 from .config import Config
 
 SCREEN_NAME = "screen.csv"
-SCREEN_FIELDS = ["relpath", "status", "reasons", "kind", "megapixels", "captured_at", "camera",
+SCREEN_FIELDS = ["relpath", "status", "reasons", "kind", "megapixels", "captured_at",
+                 "date_source", "camera",
                  "sharp_max", "sharp_center", "mean_luma", "clip_high", "clip_low",
                  "group", "burst"]
 
@@ -38,11 +39,14 @@ def read_screen(cfg: Config, year: str) -> list[dict[str, str]]:
 
 
 def run(cfg: Config, year: str) -> int:
-    items = inventory.list_year(cfg, year)
-    cache = scan.load_cache(cfg, year)
-    missing = [it for it in items if not scan.is_fresh(cache.get(it.relpath), it)]
+    all_items, cache, items = scan.year_files(cfg, year)
+    missing = scan.undated(all_items, cache) \
+        + sum(1 for it in items if not scan.is_analyzed(cache[it.relpath], it))
     if missing:
-        print(f"error: {len(missing)} files are not scanned yet - run `scan --year {year}` first")
+        print(f"error: {missing} files are not scanned yet - run `scan --year {year}` first")
+        return 2
+    if not items:
+        print(f"error: no files captured in {year} under {cfg.photos_root}")
         return 2
 
     inv, tech = cfg.section("inventory"), cfg.section("technical")
@@ -102,8 +106,10 @@ def run(cfg: Config, year: str) -> int:
     if bursts_cfg["enabled"]:
         max_gap = bursts_cfg["max_gap_seconds"]
         max_dist = bursts_cfg["max_hash_distance"]
+        # mtime is a copy/export time, not a shutter time, so it cannot define a burst.
         cands = sorted((r for r in rows
-                        if not r["_reasons"] and r.get("captured_at") and r.get("phash")),
+                        if not r["_reasons"] and r.get("date_source") == "exif"
+                        and r.get("phash")),
                        key=lambda r: (r["captured_at"], r["relpath"]))
         bursts: list[list[dict[str, Any]]] = []
         current: list[dict[str, Any]] = []

@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from . import inventory, scan, selection
+from . import scan, selection
 from .config import Config
 
 REVIEW_NAME = "review.csv"
@@ -99,12 +99,17 @@ def mark(cfg: Config, year: str, ids: str, decision: str, flags: list[str], note
 def status(cfg: Config, year: str) -> int:
     from . import sheets  # circular: sheets imports review
 
-    items = inventory.list_year(cfg, year)
-    cache = scan.load_cache(cfg, year)
-    scanned = sum(1 for it in items if scan.is_fresh(cache.get(it.relpath), it))
+    all_items, cache, items = scan.year_files(cfg, year)
+    undated = scan.undated(all_items, cache)
+    by_mtime = sum(1 for it in items if cache[it.relpath].get("date_source") == "mtime")
+    scanned = sum(1 for it in items if scan.is_analyzed(cache[it.relpath], it))
     print(f"[status {year}]")
-    print(f"  files            {len(items)}")
-    print(f"  scanned          {scanned}" + ("" if scanned == len(items) else "  (run scan)"))
+    print(f"  archive files    {len(all_items)}"
+          + (f"  ({undated} without a capture date yet - run scan)" if undated else ""))
+    print(f"  files in {year}    {len(items)}"
+          + (f"  ({by_mtime} dated by file mtime: no EXIF date)" if by_mtime else ""))
+    print(f"  scanned          {scanned}"
+          + ("" if scanned == len(items) and not undated else "  (run scan)"))
     try:
         screen = selection.read_screen(cfg, year)
         passed = [r for r in screen if r["status"] == "pass"]

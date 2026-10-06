@@ -18,6 +18,10 @@ copy_prefixes = ["LRG_", "ORG_"]
 # Regexes applied to the file stem that mark an edited/merged derivative of a frame
 # (Lightroom HDR merge, Enhance/Denoise, "Edit" copies).
 derivative_suffixes = ['-(hdr|HDR)$', '-強化(-[A-Z]{2})*$', '-Enhanced(-[A-Z]{2})*$', '-(Edit|編集)(-\d+)?$']
+# Folders/files to skip, as globs on the path relative to photos_root (fnmatch, case-sensitive;
+# "*" also matches "/"). A pattern that matches a folder skips everything inside it.
+# Hidden files and folders are always skipped. Example: ["*.lrdata", "Exports", "*/Edited/*"]
+exclude_globs = []
 # When an original and its derivative both exist, keep the derivative (true) or the original (false).
 prefer_derivative = true
 
