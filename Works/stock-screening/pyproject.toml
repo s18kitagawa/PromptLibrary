@@ -1,0 +1,25 @@
+[project]
+name = "stock-screening"
+version = "0.1.0"
+description = "Pre-screen a dated RAW photo archive (YYYY/YYYY-MM-DD) for Adobe Stock submission candidates."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "rawpy>=0.21",
+  "exifread>=3.0",
+  "numpy>=1.24",
+  "opencv-python-headless>=4.8",
+  "pillow>=10.1",
+  "imagehash>=4.3",
+  "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.scripts]
+stock-screening = "stock_screening.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stock_screening"]

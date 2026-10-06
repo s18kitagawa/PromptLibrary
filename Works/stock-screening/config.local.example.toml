@@ -1,0 +1,9 @@
+# Copy to config.local.toml (git-ignored) and edit.
+[paths]
+photos_root = "/Users/you/Pictures/RAW_Photos"
+# Must be OUTSIDE this repository and OUTSIDE photos_root.
+out_dir = "/Users/you/Pictures/stock_screening_out"
+
+# Override any default from config.toml, e.g.:
+# [quality]
+# min_sharpness = 80.0

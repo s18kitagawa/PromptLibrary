@@ -1,0 +1,53 @@
+# Default screening parameters (committed).
+# Put personal settings (paths, tuned thresholds) in config.local.toml, which is git-ignored.
+# Precedence: CLI flags > environment variables > --config file > config.local.toml > this file.
+
+[paths]
+# Intentionally empty. Set these in config.local.toml, via
+# STOCK_SCREENING_PHOTOS_ROOT / STOCK_SCREENING_OUT_DIR, or --photos-root / --out-dir.
+photos_root = ""
+out_dir = ""
+
+[inventory]
+raw_extensions = ["arw", "dng", "nef", "cr2", "cr3", "raf", "orf", "rw2", "pef", "srw"]
+image_extensions = ["jpg", "jpeg", "tif", "tiff", "png"]
+video_extensions = ["mp4", "mov", "m4v", "avi", "mts"]
+# Prefixes that camera/phone apps add to resized copies of a frame
+# (e.g. Sony Imaging Edge Mobile: "LRG_", "ORG_"). Used to group copies with their original.
+copy_prefixes = ["LRG_", "ORG_"]
+# Regexes applied to the file stem that mark an edited/merged derivative of a frame
+# (Lightroom HDR merge, Enhance/Denoise, "Edit" copies).
+derivative_suffixes = ['-(hdr|HDR)$', '-強化(-[A-Z]{2})*$', '-Enhanced(-[A-Z]{2})*$', '-(Edit|編集)(-\d+)?$']
+# When an original and its derivative both exist, keep the derivative (true) or the original (false).
+prefer_derivative = true
+
+[technical]
+# Adobe Stock photo requirements: 4–100 MP.
+min_megapixels = 4.0
+max_megapixels = 100.0
+
+[quality]
+# Sharpness = max variance of the Laplacian over a 4x4 grid on a 1024px preview.
+# Taking the max tile keeps shallow depth-of-field shots whose subject is sharp.
+min_sharpness = 100.0
+# Fraction of pixels at >=250 / <=5 (8-bit luma) and mean luma bounds.
+# Shadow limits are deliberately loose: night scenes, fireworks and illuminations are
+# valid stock subjects with large black areas. Only near-black frames are rejected.
+max_clip_high = 0.25
+max_clip_low = 0.98
+min_mean_luma = 12.0
+max_mean_luma = 235.0
+
+[bursts]
+# Consecutive frames shot within max_gap_seconds whose perceptual hashes differ by
+# <= max_hash_distance bits are treated as one burst; only the sharpest frame passes.
+enabled = true
+max_gap_seconds = 30.0
+max_hash_distance = 12
+
+[sheets]
+# 20 tiles per sheet keeps the number of images to review manageable.
+columns = 5
+rows = 4
+tile_px = 440
+jpeg_quality = 82
