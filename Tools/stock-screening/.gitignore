@@ -1,0 +1,21 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Personal configuration
+config.local.toml
+
+# Screening output must never be committed (contains file paths and photo thumbnails).
+# The tool refuses to write inside this repository; these patterns are a second safety net.
+out/
+sheets/
+*.csv
+*.jsonl
+export_*.txt
+
+# OS
+.DS_Store
