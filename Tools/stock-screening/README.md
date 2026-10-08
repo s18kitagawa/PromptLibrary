@@ -215,13 +215,13 @@ uv run stock-screening export --year 2019 --path-prefix /Users/you/Pictures/RAW_
 
 **インストール**：Lightroom Classic の「ファイル」→「プラグインマネージャー」→「追加」で `lightroom/StockScreening.lrplugin` を選択します。
 
-**使い方**：「ライブラリ」→「プラグインエクストラ」→「Import Screening Results (review.csv)...」
+**使い方**：「ライブラリ」→「プラグインエクストラ」→「スクリーニング結果を読み込む (review.csv)...」（Lightroom の表示言語が日本語の場合。英語 UI では「Import Screening Results (review.csv)...」）
 
 - **review.csv**：`<出力フォルダ>/<YYYY>/review.csv` を選択（年はフォルダ名から自動入力）
-- **Photo archive**：スクリーニング時の `photos_root` と同じフォルダ（Mac 上のパス。例：`/Users/you/Pictures/RAW_Photos`）
+- **写真フォルダ**：スクリーニング時の `photos_root` と同じフォルダ（Mac 上のパス。例：`/Users/you/Pictures/RAW_Photos`）
 - `Stock Screening / <YYYY> / candidate・review・reject` のコレクションが作成されます（reject は初期設定でオフ）。`candidate` から Adobe Stock 公開サービスで送信してください。
 - パスが一致しない場合は、同じフォルダ内の同じファイル名・別拡張子の写真（RAW+JPEG の RAW など）を探します。カタログに見つからなかったファイルは `review.csv` と同じフォルダの `lightroom_unmatched.txt` に記録されます。
-- 「Replace collection contents」（初期設定オン）では取り込み前にコレクションを空にするので、判定を変えたあとに再実行すれば反映されます。
+- 「コレクションの内容を置き換える」（初期設定オン）では取り込み前にコレクションを空にするので、判定を変えたあとに再実行すれば反映されます。
 - 判定・フラグ・メモはキーワードやキャプションではなく**プラグインのメタデータ**として保存されます（メタデータパネルの「Stock Screening」）。検索やスマートコレクションに使えますが、**Adobe Stock には送信されません**。
 - 取り込みは 1 回の「取り消し」で元に戻せます。
 

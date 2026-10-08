@@ -216,9 +216,9 @@ local function makeMatcher(catalog, photosRoot)
 		if map then
 			photo = map[PathMatch.stemKey(name)]
 			if photo then return photo, "sibling" end
-			return nil, "not in catalog (folder is imported)"
+			return nil, LOC "$$$/StockScreening/ReasonNotInCatalog=not in catalog (folder is imported)"
 		end
-		return nil, "folder not in catalog"
+		return nil, LOC "$$$/StockScreening/ReasonNoFolder=folder not in catalog"
 	end
 end
 
